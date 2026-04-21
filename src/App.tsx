@@ -104,7 +104,7 @@ const Card = ({ children, className = "", ...props }: { children: React.ReactNod
 
 // --- Modules ---
 
-const AutomationModule = ({ voiceLog, isListening }: { voiceLog: string[], isListening: boolean }) => {
+const AutomationModule = ({ voiceLog, isListening, speak }: { voiceLog: string[], isListening: boolean, speak: (text: string) => void }) => {
   const [tasks] = useState([
     { id: 1, name: 'Magisk Daemon', status: 'Active', uptime: '142h 12m' },
     { id: 2, name: 'Tasker Profile: Home', status: 'Standby', uptime: 'N/A' },
@@ -120,6 +120,13 @@ const AutomationModule = ({ voiceLog, isListening }: { voiceLog: string[], isLis
           <p className="text-gray-400 text-sm mt-1">Nexus Sombra Control Center • Root Access Established</p>
         </div>
         <div className="hidden sm:flex gap-2">
+            <button 
+              onClick={() => speak("Teste de áudio do sistema Nexus estabilizado.")}
+              className="px-3 py-1 bg-white/5 border border-white/10 rounded-full flex items-center gap-2 text-[10px] text-gray-400 uppercase font-bold tracking-widest hover:border-[var(--accent)] hover:text-white transition-all"
+            >
+              <Zap size={10} className="text-[var(--accent)]" />
+              Testar Voz
+            </button>
             <div className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full flex items-center gap-2 text-[10px] text-green-500 uppercase font-bold tracking-widest">
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
               Sincronizado
@@ -423,13 +430,13 @@ const AIAssistantModule = ({ user, voiceLog, speak, location }: { user: any, voi
 
   const generateLetter = async (overridePrompt?: string) => {
     const currentPrompt = overridePrompt || prompt;
-    if (!currentPrompt || !user) return;
+    if (!currentPrompt) return;
     setLoading(true);
     setLatestResponse(''); 
     let fullText = '';
     
     const locationContext = location ? `Localização GPS: Lat ${location.lat}, Lng ${location.lng}.` : "";
-    const systemPrompt = "Você é o assistente 'Sombra'. Responda AGORA de forma adaptativa e estratégica. Se não tiver os dados, explique o motivo técnico.";
+    const systemPrompt = "Você é o assistente 'Sombra'. Responda AGORA de forma adaptativa e estratégica. 1. Se houver GPS, trate como sua base local imediata. 2. Use Google Search em tempo real para fatos externos. 3. Use pontuação clara (vírgulas e pontos) para criar pausas naturais na leitura. 4. Seja conciso e use um tom de autoridade técnica.";
 
     try {
       if (engine === 'gemini') {
@@ -488,12 +495,14 @@ const AIAssistantModule = ({ user, voiceLog, speak, location }: { user: any, voi
         }
       }
       
-      await addDoc(collection(db, "ai_history"), {
-        prompt: currentPrompt,
-        response: fullText,
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
+      if (user) {
+        await addDoc(collection(db, "ai_history"), {
+          prompt: currentPrompt,
+          response: fullText,
+          userId: user.uid,
+          createdAt: serverTimestamp()
+        });
+      }
       
       speak(fullText);
       if (!overridePrompt) setPrompt('');
@@ -505,26 +514,6 @@ const AIAssistantModule = ({ user, voiceLog, speak, location }: { user: any, voi
       setLoading(false);
     }
   };
-
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Card className="p-10 text-center max-w-sm space-y-6">
-          <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
-             <Shield size={32} className="text-gray-400" />
-          </div>
-          <h2 className="text-xl font-bold text-white">Acesso Restrito</h2>
-          <p className="text-gray-500 text-sm italic leading-relaxed">O protocolo Nexus AI exige autenticação biométrica (Google Login) para acesso aos dados estratégicos.</p>
-          <button 
-            onClick={loginWithGoogle}
-            className="w-full flex items-center justify-center gap-2 bg-white text-black py-3 rounded-xl font-bold uppercase text-xs hover:bg-[var(--accent)] transition-colors"
-          >
-            <LogIn size={16} /> Autenticar VIA Google
-          </button>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -673,30 +662,71 @@ export default function App() {
 
   const speak = (text: string) => {
     if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'pt-BR';
     
-    const setVoiceAndSpeak = () => {
+    // Interromper qualquer ciclo de fala anterior
+    window.speechSynthesis.cancel();
+
+    // Filtros e limpeza de texto (remover emojis e marcas de formatação pesadas para a voz)
+    const cleanText = text.replace(/[*#_\[\]]/g, '').trim();
+    
+    // Dividir o texto em sentenças para processamento individual (Prosódia Fracionária)
+    const sentences = cleanText.split(/(?<=[.!?])\s+/);
+
+    setTimeout(() => {
       const voices = window.speechSynthesis.getVoices();
-      const maleVoice = voices.find(v => 
+      
+      let chosenVoice = voices.find(v => 
         v.lang.startsWith('pt') && 
         (v.name.toLowerCase().includes('daniel') || 
          v.name.toLowerCase().includes('ricardo') || 
-         v.name.toLowerCase().includes('male') ||
-         v.name.toLowerCase().includes('google português do brasil'))
+         v.name.toLowerCase().includes('natural') ||
+         v.name.toLowerCase().includes('neural'))
       );
-      if (maleVoice) utterance.voice = maleVoice;
-      utterance.rate = 0.95;
-      utterance.pitch = 0.85;
-      window.speechSynthesis.speak(utterance);
-    };
 
-    if (window.speechSynthesis.getVoices().length === 0) {
-      window.speechSynthesis.addEventListener('voiceschanged', setVoiceAndSpeak, { once: true });
-    } else {
-      setVoiceAndSpeak();
-    }
+      if (!chosenVoice) {
+        chosenVoice = voices.find(v => v.lang === 'pt-BR') || voices.find(v => v.lang.startsWith('pt'));
+      }
+
+      let sentenceIndex = 0;
+
+      const speakNextSentence = () => {
+        if (sentenceIndex >= sentences.length) return;
+
+        const sentence = sentences[sentenceIndex];
+        const utterance = new SpeechSynthesisUtterance(sentence);
+        utterance.lang = 'pt-BR';
+        if (chosenVoice) utterance.voice = chosenVoice;
+
+        // Ajustes de Entonação e Velocidade para Sombra (Ar de autoridade estratégica)
+        utterance.rate = 0.92; // Um pouco mais lento para clareza
+        utterance.pitch = 0.82; // Tom mais grave e sério
+        utterance.volume = 1.0;
+
+        // Pausa Natural: Pequeno silêncio entre as frases
+        utterance.onend = () => {
+          sentenceIndex++;
+          setTimeout(speakNextSentence, 250); // Pausa de 250ms "respiração"
+        };
+
+        utterance.onerror = (e) => {
+          console.error("Erro na síntese Nexus:", e);
+          sentenceIndex++;
+          speakNextSentence();
+        };
+
+        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+      };
+
+      if (voices.length === 0) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          const updatedVoices = window.speechSynthesis.getVoices();
+          if (updatedVoices.length > 0) speakNextSentence();
+        };
+      } else {
+        speakNextSentence();
+      }
+    }, 150);
   };
 
   const handleVoiceCommand = async (command: string) => {
@@ -904,7 +934,7 @@ export default function App() {
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                 className="w-full"
               >
-                {activeTab === 'automation' && <AutomationModule voiceLog={voiceLog} isListening={isListening} />}
+                {activeTab === 'automation' && <AutomationModule voiceLog={voiceLog} isListening={isListening} speak={speak} />}
                 {activeTab === 'realestate' && <RealEstateModule />}
                 {activeTab === 'ai' && <AIAssistantModule user={user} voiceLog={voiceLog} speak={speak} location={location} />}
               </motion.div>
