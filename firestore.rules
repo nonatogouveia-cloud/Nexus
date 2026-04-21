@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Listings: Public read, admin/owner write (simplified for MVP, targeting user email for admin)
+    match /listings/{listingId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Automation: Private to user
+    match /automation/{taskId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // AI History: Private to owner
+    match /ai_history/{historyId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

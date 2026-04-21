@@ -1,0 +1,6 @@
+{
+  "name": "Nexus Sombra",
+  "description": "Plataforma técnica e estratégica para automação Android/Root, gestão imobiliária em Juazeiro e infraestrutura de IA.",
+  "requestFramePermissions": ["microphone", "geolocation"],
+  "majorCapabilities": []
+}

@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "Listing": {
+      "title": "Property Listing",
+      "description": "A property listing in Juazeiro do Norte",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "area": { "type": "string" },
+        "type": { "type": "string" },
+        "price": { "type": "string" },
+        "investorInterest": { "type": "string" },
+        "coords": { "type": "string" },
+        "proximity": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "area", "type", "price"]
+    },
+    "AutomationTask": {
+      "title": "Automation Task",
+      "description": "A recorded task from Tasker or Magisk",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string" },
+        "uptime": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "status"]
+    },
+    "AIHistory": {
+      "title": "AI History Line",
+      "description": "History of AI generated letters",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "prompt": { "type": "string" },
+        "response": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["prompt", "response", "userId"]
+    }
+  },
+  "firestore": {
+    "listings": {
+      "schema": "Listing",
+      "description": "Real estate listings collection"
+    },
+    "automation": {
+      "schema": "AutomationTask",
+      "description": "System automation logs"
+    },
+    "ai_history": {
+      "schema": "AIHistory",
+      "description": "History of AI generations"
+    }
+  }
+}
